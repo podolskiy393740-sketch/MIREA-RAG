@@ -4,13 +4,17 @@ import asyncio
 
 from src.domain.entities import Answer, Chunk, Document, Query
 from src.domain.ports import ChunkerPort, EmbedderPort, FullTextStorePort, LLMPort, VectorStorePort
+from src.infrastructure.llm.prompt_templates import INSUFFICIENT_DATA_MARKER, build_prompt
 from src.infrastructure.retrieval.rrf import rrf_fuse
 
 _SEARCH_TOP_K = 10
-# Сколько чанков после RRF-слияния отдавать в промпт LLM. Обрезка по
-# токен-бюджету (см. ARCHITECTURE.md) отложена до выбора конкретной LLM
-# (открытый вопрос, см. CLAUDE.md) — там же появится настоящий бюджет.
+# Грубый предфильтр числом чанков после RRF (до тонкой обрезки по
+# токен-бюджету в build_prompt — см. prompt_templates.py).
 _MAX_CONTEXT_CHUNKS = 5
+
+_NO_ANSWER_FOUND_TEXT = (
+    "К сожалению, не нашёл ответа в документах вуза — этот вопрос передан техподдержке/куратору."
+)
 
 
 class AnswerQuestionUseCase:
@@ -25,6 +29,13 @@ class AnswerQuestionUseCase:
       RRF), но финальный ответ не генерируется — LLM ещё не выбрана
       (открытый вопрос, см. CLAUDE.md), нельзя реализовывать как решение
       по умолчанию.
+
+    Снижение галлюцинаций (требование куратора, см. CLAUDE.md) сделано
+    механически, а не только в тексте промпта: если retrieval не нашёл
+    ни одного чанка, LLM вообще не вызывается — ей физически не на чём
+    галлюцинировать. Если LLM всё равно возвращает маркер "источники не
+    содержат ответа" (см. prompt_templates.py), это тоже уходит в
+    человеческий фолбек, а не показывается студенту как уверенный ответ.
     """
 
     def __init__(
@@ -55,7 +66,15 @@ class AnswerQuestionUseCase:
                 needs_human_fallback=True,
             )
 
-        answer_text = await self._llm.generate(query.text, context_chunks)
+        if not context_chunks:
+            return Answer(text=_NO_ANSWER_FOUND_TEXT, needs_human_fallback=True)
+
+        prompt = build_prompt(query.text, context_chunks)
+        answer_text = await self._llm.generate(prompt)
+
+        if INSUFFICIENT_DATA_MARKER in answer_text:
+            return Answer(text=_NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)
+
         return Answer(text=answer_text, sources=context_chunks)
 
     async def _retrieve(self, query: Query) -> list[Chunk]:

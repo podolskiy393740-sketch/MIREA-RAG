@@ -2,6 +2,7 @@ import pytest
 
 from src.application.use_cases import AnswerQuestionUseCase
 from src.domain.entities import Chunk, Query, Vector
+from src.infrastructure.llm.prompt_templates import INSUFFICIENT_DATA_MARKER
 
 
 def _chunk(chunk_id: str, text: str = "текст") -> Chunk:
@@ -42,10 +43,12 @@ class FakeEmbedder:
 class FakeLLM:
     def __init__(self, answer: str = "готовый ответ") -> None:
         self._answer = answer
-        self.received_chunks: list[Chunk] | None = None
+        self.received_prompt: str | None = None
+        self.call_count = 0
 
-    async def generate(self, prompt: str, context_chunks: list[Chunk]) -> str:
-        self.received_chunks = context_chunks
+    async def generate(self, prompt: str) -> str:
+        self.received_prompt = prompt
+        self.call_count += 1
         return self._answer
 
 
@@ -84,8 +87,8 @@ async def test_hybrid_search_fuses_fts_and_vector_results():
 
 
 @pytest.mark.asyncio
-async def test_llm_present_generates_final_answer_from_retrieved_chunks():
-    fts = FakeFullTextStore([_chunk("a")])
+async def test_llm_present_generates_final_answer_grounded_in_retrieved_chunks():
+    fts = FakeFullTextStore([_chunk("a", text="Стипендия выплачивается 25 числа.")])
     llm = FakeLLM(answer="Стипендия выплачивается 25 числа.")
     use_case = AnswerQuestionUseCase(fulltext_store=fts, llm=llm)
 
@@ -93,16 +96,43 @@ async def test_llm_present_generates_final_answer_from_retrieved_chunks():
 
     assert answer.needs_human_fallback is False
     assert answer.text == "Стипендия выплачивается 25 числа."
-    assert llm.received_chunks == [_chunk("a")]
+    assert "Стипендия выплачивается 25 числа." in llm.received_prompt
+    assert "когда стипендия?" in llm.received_prompt
 
 
 @pytest.mark.asyncio
-async def test_context_is_capped_at_max_chunks():
-    many_chunks = [_chunk(str(i)) for i in range(10)]
+async def test_context_is_capped_at_max_chunks_before_prompt():
+    many_chunks = [_chunk(str(i), text=f"уникальный текст {i}") for i in range(10)]
     fts = FakeFullTextStore(many_chunks)
     llm = FakeLLM()
     use_case = AnswerQuestionUseCase(fulltext_store=fts, llm=llm)
 
-    await use_case.execute(Query(text="вопрос"))
+    answer = await use_case.execute(Query(text="вопрос"))
 
-    assert len(llm.received_chunks) == 5
+    assert len(answer.sources) == 5
+
+
+@pytest.mark.asyncio
+async def test_empty_retrieval_skips_llm_entirely():
+    """Требование куратора — снижение галлюцинаций реализовано механически:
+    если retrieval ничего не нашёл, LLM вообще не вызывается."""
+    fts = FakeFullTextStore([])
+    llm = FakeLLM()
+    use_case = AnswerQuestionUseCase(fulltext_store=fts, llm=llm)
+
+    answer = await use_case.execute(Query(text="вопрос без ответа в базе"))
+
+    assert answer.needs_human_fallback is True
+    assert llm.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_insufficient_data_marker_from_llm_triggers_human_fallback():
+    fts = FakeFullTextStore([_chunk("a", text="нерелевантный текст")])
+    llm = FakeLLM(answer=INSUFFICIENT_DATA_MARKER)
+    use_case = AnswerQuestionUseCase(fulltext_store=fts, llm=llm)
+
+    answer = await use_case.execute(Query(text="вопрос не по теме источников"))
+
+    assert answer.needs_human_fallback is True
+    assert answer.sources != []  # источники сохраняются даже при фолбеке

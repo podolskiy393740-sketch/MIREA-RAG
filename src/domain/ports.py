@@ -33,7 +33,12 @@ class FullTextStorePort(Protocol):
 
 
 class LLMPort(Protocol):
-    async def generate(self, prompt: str, context_chunks: list[Chunk]) -> str: ...
+    """Генерация ответа по уже собранному промпту (см.
+    infrastructure/llm/prompt_templates.py — грaундинг в контекст,
+    обрезка по токен-бюджету собираются в application-слое, LLM здесь
+    не должна знать про структуру Chunk)."""
+
+    async def generate(self, prompt: str) -> str: ...
 
 
 class UserContextPort(Protocol):
