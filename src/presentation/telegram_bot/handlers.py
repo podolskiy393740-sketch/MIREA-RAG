@@ -25,14 +25,18 @@ async def handle_question(message: Message, embedder: EmbedderPort, llm: LLMPort
     if not message.text:
         return
 
-    # Свежая сессия/use case на каждое сообщение: AsyncSession не рассчитан
-    # на конкурентное использование из разных апдейтов бота, а embedder/llm
-    # (тяжёлая модель, HTTP-клиент) — одни и те же на всё время жизни бота,
-    # передаются через workflow_data (см. bot.py), а не создаются заново.
-    async with get_session() as session:
+    # Отдельная сессия на каждый репозиторий, а не одна общая: retrieve()
+    # внутри AnswerQuestionUseCase запускает FTS- и векторный поиск
+    # параллельно (asyncio.gather) — одна AsyncSession не рассчитана на
+    # конкурентное использование и падает с IllegalStateChangeError, если
+    # её отдать в оба репозитория сразу. Плюс свежая сессия на каждое
+    # сообщение бота: AsyncSession не рассчитан и на конкурентность между
+    # разными апдейтами. embedder/llm — одни и те же на всё время жизни
+    # бота, передаются через workflow_data (см. bot.py).
+    async with get_session() as fts_session, get_session() as vector_session:
         answer_question = AnswerQuestionUseCase(
-            fulltext_store=PostgresFullTextRepository(session),
-            vector_store=PostgresVectorRepository(session),
+            fulltext_store=PostgresFullTextRepository(fts_session),
+            vector_store=PostgresVectorRepository(vector_session),
             embedder=embedder,
             llm=llm,
         )
