@@ -70,7 +70,13 @@ class AnswerQuestionUseCase:
             return Answer(text=_NO_ANSWER_FOUND_TEXT, needs_human_fallback=True)
 
         prompt = build_prompt(query.text, context_chunks)
-        answer_text = await self._llm.generate(prompt)
+        try:
+            answer_text = await self._llm.generate(prompt)
+        except Exception:
+            # Осознанно широкий except: сеть/лимиты/невалидный ответ
+            # внешнего API — любой сбой LLM должен уйти в человеческий
+            # фолбек, а не уронить ответ бота студенту.
+            return Answer(text=_NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)
 
         if INSUFFICIENT_DATA_MARKER in answer_text:
             return Answer(text=_NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)

@@ -136,3 +136,19 @@ async def test_insufficient_data_marker_from_llm_triggers_human_fallback():
 
     assert answer.needs_human_fallback is True
     assert answer.sources != []  # источники сохраняются даже при фолбеке
+
+
+class FailingLLM:
+    async def generate(self, prompt: str) -> str:
+        raise RuntimeError("OpenRouter недоступен")
+
+
+@pytest.mark.asyncio
+async def test_llm_failure_degrades_to_human_fallback_instead_of_crashing():
+    fts = FakeFullTextStore([_chunk("a", text="релевантный текст")])
+    use_case = AnswerQuestionUseCase(fulltext_store=fts, llm=FailingLLM())
+
+    answer = await use_case.execute(Query(text="вопрос"))
+
+    assert answer.needs_human_fallback is True
+    assert answer.sources != []
