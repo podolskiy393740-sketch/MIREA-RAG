@@ -43,3 +43,52 @@ def test_parsed_html_is_chunkable_with_heading_context():
     assert len(chunks) == 2
     assert "Порядок зачисления" in chunks[1].text
     assert "Положение о военной кафедре" in chunks[1].text
+
+
+# Упрощённая копия реального шаблона mirea.ru (см. data/raw_html/*.html,
+# получены через Wayback Machine): мега-меню на сотни пунктов + заголовок
+# и текст статьи в отдельных классах page-title/app-content.
+_REAL_TEMPLATE_HTML = """
+<html>
+  <body>
+    <nav class="top_menu__content">
+      <ul>
+        <li><a href="/abitur/">Абитуриентам</a></li>
+        <li><a href="/about/history/">История вуза</a>
+          <ul>
+            <li><a href="/about/history/1997/">1997</a></li>
+            <li><a href="/about/history/1998/">1998</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+    <h1 class="uk-heading-bullet page-title">Общежития</h1>
+    <div class="uk-width-1-1 app-content">
+      <p>Студенческий городок РТУ МИРЭА — комплекс из шести корпусов.</p>
+      <h2>Общежитие №1</h2>
+      <p>Комнаты подготовки к занятиям, спортзал.</p>
+    </div>
+    <footer>
+      <a href="/about/">Об Университете</a>
+      <a href="/about/history/">История вуза</a>
+    </footer>
+  </body>
+</html>
+"""
+
+
+def test_extracts_only_title_and_content_ignoring_mega_menu():
+    markdown = html_to_markdown(_REAL_TEMPLATE_HTML)
+
+    assert "# Общежития" in markdown
+    assert "## Общежитие №1" in markdown
+    assert "Абитуриентам" not in markdown
+    assert "История вуза" not in markdown
+
+
+def test_falls_back_to_whole_body_without_known_content_class():
+    """_MIREA_PAGE_HTML не использует шаблон mirea.ru (нет app-content) —
+    парсер не должен падать, а должен отдать всё тело как раньше."""
+    markdown = html_to_markdown(_MIREA_PAGE_HTML)
+
+    assert "Положение о военной кафедре" in markdown
