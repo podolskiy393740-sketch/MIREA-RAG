@@ -3,7 +3,14 @@ from __future__ import annotations
 import asyncio
 
 from src.domain.entities import Answer, Chunk, Document, Query
-from src.domain.ports import ChunkerPort, EmbedderPort, FullTextStorePort, LLMPort, VectorStorePort
+from src.domain.ports import (
+    ChunkerPort,
+    DocumentStorePort,
+    EmbedderPort,
+    FullTextStorePort,
+    LLMPort,
+    VectorStorePort,
+)
 from src.infrastructure.llm.prompt_templates import INSUFFICIENT_DATA_MARKER, build_prompt
 from src.infrastructure.retrieval.rrf import rrf_fuse
 
@@ -99,8 +106,11 @@ class AnswerQuestionUseCase:
 
 
 class IngestDocumentUseCase:
-    """Индексация документа: чанкинг -> FTS (всегда) -> векторное хранилище
-    (только если подключены embedder и vector_store).
+    """Индексация документа: документ -> чанкинг -> FTS (всегда) ->
+    векторное хранилище (только если подключены embedder и vector_store).
+
+    document_store обязателен: chunks.document_id — внешний ключ на
+    documents.id в Postgres, документ должен быть сохранён до его чанков.
 
     Модель эмбеддингов — открытый вопрос (см. CLAUDE.md), поэтому векторная
     ветка опциональна: без неё документ всё равно проиндексируется в FTS и
@@ -111,16 +121,19 @@ class IngestDocumentUseCase:
     def __init__(
         self,
         chunker: ChunkerPort,
+        document_store: DocumentStorePort,
         fulltext_store: FullTextStorePort,
         vector_store: VectorStorePort | None = None,
         embedder: EmbedderPort | None = None,
     ) -> None:
         self._chunker = chunker
+        self._document_store = document_store
         self._fulltext_store = fulltext_store
         self._vector_store = vector_store
         self._embedder = embedder
 
     async def execute(self, document: Document) -> list[Chunk]:
+        await self._document_store.upsert(document)
         chunks = self._chunker.chunk(document)
 
         for chunk in chunks:

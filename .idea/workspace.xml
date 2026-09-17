@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="af7fa697-6945-4a74-8eba-8a6b56a045a7" name="Changes" comment="" />
+    <list default="true" id="af7fa697-6945-4a74-8eba-8a6b56a045a7" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/seed_from_qa_csv.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/seed_from_qa_csv.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/application/use_cases.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/application/use_cases.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/domain/ports.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/domain/ports.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -58,7 +63,7 @@
       <updated>1789630028168</updated>
       <workItem from="1789646342227" duration="553000" />
       <workItem from="1789646941297" duration="3826000" />
-      <workItem from="1789667266595" duration="5328000" />
+      <workItem from="1789667266595" duration="7428000" />
     </task>
     <servers />
   </component>

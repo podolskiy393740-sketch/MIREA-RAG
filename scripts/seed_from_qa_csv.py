@@ -18,6 +18,7 @@ from src.application.use_cases import IngestDocumentUseCase
 from src.infrastructure.chunking.chunker_selector import ChunkerSelector
 from src.infrastructure.embeddings.qwen_local_embedder import QwenLocalEmbedder
 from src.infrastructure.ingestion.qa_csv_source import load_documents_from_qa_csv
+from src.infrastructure.storage.postgres.document_repository import PostgresDocumentRepository
 from src.infrastructure.storage.postgres.fulltext_repository import PostgresFullTextRepository
 from src.infrastructure.storage.postgres.session import get_session
 from src.infrastructure.storage.postgres.vector_repository import PostgresVectorRepository
@@ -28,6 +29,7 @@ async def seed(csv_path: str) -> None:
     print(f"Загружено документов из CSV: {len(documents)}")
 
     async with get_session() as session:
+        document_store = PostgresDocumentRepository(session)
         fulltext_store = PostgresFullTextRepository(session)
         vector_store = PostgresVectorRepository(session)
         # Первый вызов embed() качает веса Qwen3-Embedding-0.6B с Hugging
@@ -36,6 +38,7 @@ async def seed(csv_path: str) -> None:
         embedder = QwenLocalEmbedder()
         use_case = IngestDocumentUseCase(
             chunker=ChunkerSelector(),
+            document_store=document_store,
             fulltext_store=fulltext_store,
             vector_store=vector_store,
             embedder=embedder,

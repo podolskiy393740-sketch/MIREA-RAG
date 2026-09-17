@@ -13,6 +13,14 @@ class EmbedderPort(Protocol):
     async def embed(self, texts: list[str]) -> list[Vector]: ...
 
 
+class DocumentStorePort(Protocol):
+    """Хранилище документов. Chunk.document_id ссылается на Document.id
+    внешним ключом в Postgres — документ должен быть сохранён до его
+    чанков."""
+
+    async def upsert(self, document: Document) -> None: ...
+
+
 class VectorStorePort(Protocol):
     """Хранилище эмбеддингов (pgvector). search() возвращает чанки,
     упорядоченные по векторной близости — ранг = позиция в списке.

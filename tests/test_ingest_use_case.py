@@ -5,6 +5,14 @@ from src.domain.entities import Chunk, Document, DocumentType, Vector
 from src.infrastructure.chunking.chunker_selector import ChunkerSelector
 
 
+class FakeDocumentStore:
+    def __init__(self) -> None:
+        self.upserted: list[Document] = []
+
+    async def upsert(self, document: Document) -> None:
+        self.upserted.append(document)
+
+
 class FakeFullTextStore:
     def __init__(self) -> None:
         self.upserted: list[Chunk] = []
@@ -41,8 +49,11 @@ def _document() -> Document:
 
 @pytest.mark.asyncio
 async def test_ingest_without_embedder_only_fills_fulltext_store():
+    document_store = FakeDocumentStore()
     fulltext_store = FakeFullTextStore()
-    use_case = IngestDocumentUseCase(chunker=ChunkerSelector(), fulltext_store=fulltext_store)
+    use_case = IngestDocumentUseCase(
+        chunker=ChunkerSelector(), document_store=document_store, fulltext_store=fulltext_store
+    )
 
     chunks = await use_case.execute(_document())
 
@@ -51,11 +62,27 @@ async def test_ingest_without_embedder_only_fills_fulltext_store():
 
 
 @pytest.mark.asyncio
+async def test_ingest_saves_document_before_chunks():
+    """chunks.document_id — внешний ключ на documents.id в Postgres:
+    документ обязан быть сохранён до чанков, иначе будет ForeignKeyViolationError."""
+    document_store = FakeDocumentStore()
+    document = _document()
+    use_case = IngestDocumentUseCase(
+        chunker=ChunkerSelector(), document_store=document_store, fulltext_store=FakeFullTextStore()
+    )
+
+    await use_case.execute(document)
+
+    assert document_store.upserted == [document]
+
+
+@pytest.mark.asyncio
 async def test_ingest_with_embedder_also_fills_vector_store():
     fulltext_store = FakeFullTextStore()
     vector_store = FakeVectorStore()
     use_case = IngestDocumentUseCase(
         chunker=ChunkerSelector(),
+        document_store=FakeDocumentStore(),
         fulltext_store=fulltext_store,
         vector_store=vector_store,
         embedder=FakeEmbedder(),
@@ -72,7 +99,9 @@ async def test_ingest_returns_chunks_from_selected_strategy():
     document = Document(
         id="doc-2", source_url="u", doc_type=DocumentType.STRUCTURED_HTML, raw_text="# Заголовок\n\nТекст раздела."
     )
-    use_case = IngestDocumentUseCase(chunker=ChunkerSelector(), fulltext_store=FakeFullTextStore())
+    use_case = IngestDocumentUseCase(
+        chunker=ChunkerSelector(), document_store=FakeDocumentStore(), fulltext_store=FakeFullTextStore()
+    )
 
     chunks = await use_case.execute(document)
 
