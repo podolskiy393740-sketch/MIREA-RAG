@@ -2,7 +2,7 @@ import asyncio
 
 from aiogram import Bot, Dispatcher
 
-from src.application.use_cases import AnswerQuestionUseCase
+from src.infrastructure.embeddings.qwen_local_embedder import QwenLocalEmbedder
 from src.presentation.telegram_bot.config import BotSettings
 from src.presentation.telegram_bot.handlers import router
 
@@ -13,11 +13,15 @@ async def main() -> None:
     dispatcher = Dispatcher()
     dispatcher.include_router(router)
 
-    # Ports не подключены — use case работает в режиме human-fallback,
-    # пока не готова инфраструктура (Postgres/эмбеддинги/LLM).
-    answer_question = AnswerQuestionUseCase()
+    # Один embedder на всё время жизни бота — модель (Qwen3-Embedding)
+    # грузится один раз при первом вызове, а не на каждое сообщение.
+    # LLM ещё не выбрана (открытый вопрос, см. CLAUDE.md), поэтому
+    # AnswerQuestionUseCase (строится на каждое сообщение — см.
+    # handlers.py) пока всегда отвечает human-фолбеком с найденными
+    # источниками вместо сгенерированного текста.
+    embedder = QwenLocalEmbedder()
 
-    await dispatcher.start_polling(bot, answer_question=answer_question)
+    await dispatcher.start_polling(bot, embedder=embedder)
 
 
 if __name__ == "__main__":
