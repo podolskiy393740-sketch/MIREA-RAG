@@ -1,12 +1,12 @@
 """Индексация документов из CSV вида question,answer,source_url,topic.
 
-НЕ запускать на data/qa_pairs.csv из chernenko-s/mirea-rag без явного
-разрешения автора/куратора — репозиторий без лицензии, датасет похоже
-подготовлен вручную (is_generated=TRUE), это не наш сбор данных (см.
-обсуждение в docs/embeddings-comparison.md и историю решений проекта).
+Датасет по умолчанию — data/external/mirea_rag_slava_qa_pairs.csv, взятый
+из chernenko-s/mirea-rag без разрешения автора (репозиторий без лицензии,
+включён как запасной источник "на всякий случай" — см. атрибуцию и риски
+в data/external/README.md и docs/data-collection.md).
 
-Использование (после разрешения и при поднятом Postgres):
-    python -m scripts.seed_from_qa_csv --csv path/to/qa_pairs.csv
+Использование (при поднятом Postgres):
+    python -m scripts.seed_from_qa_csv --csv data/external/mirea_rag_slava_qa_pairs.csv
 """
 
 from __future__ import annotations
