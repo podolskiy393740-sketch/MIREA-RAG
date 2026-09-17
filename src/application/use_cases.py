@@ -22,7 +22,7 @@ class AnswerQuestionUseCase:
         self._fulltext_store = fulltext_store
         self._llm = llm
 
-    def execute(self, query: Query) -> Answer:
+    async def execute(self, query: Query) -> Answer:
         if self._vector_store is None or self._fulltext_store is None or self._llm is None:
             return Answer(
                 text=(

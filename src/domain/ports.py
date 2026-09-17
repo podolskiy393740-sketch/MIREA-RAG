@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from src.domain.entities import Chunk, Document, RetrievedChunk, UserContext, Vector
+from src.domain.entities import Chunk, Document, UserContext, Vector
 
 
 class ChunkerPort(Protocol):
@@ -10,23 +10,30 @@ class ChunkerPort(Protocol):
 
 
 class EmbedderPort(Protocol):
-    def embed(self, texts: list[str]) -> list[Vector]: ...
+    async def embed(self, texts: list[str]) -> list[Vector]: ...
 
 
 class VectorStorePort(Protocol):
-    def upsert(self, chunk: Chunk, embedding: Vector) -> None: ...
+    """Хранилище эмбеддингов (pgvector). search() возвращает чанки,
+    упорядоченные по векторной близости — ранг = позиция в списке.
+    Слияние с FTS-результатами (RRF) — отдельный шаг, см. ARCHITECTURE.md."""
 
-    def search(self, query_embedding: Vector, top_k: int) -> list[RetrievedChunk]: ...
+    async def upsert(self, chunk: Chunk, embedding: Vector) -> None: ...
+
+    async def search(self, query_embedding: Vector, top_k: int) -> list[Chunk]: ...
 
 
 class FullTextStorePort(Protocol):
-    def upsert(self, chunk: Chunk) -> None: ...
+    """FTS-хранилище (Postgres tsvector). search() возвращает чанки,
+    упорядоченные по релевантности — ранг = позиция в списке."""
 
-    def search(self, query_text: str, top_k: int) -> list[RetrievedChunk]: ...
+    async def upsert(self, chunk: Chunk) -> None: ...
+
+    async def search(self, query_text: str, top_k: int) -> list[Chunk]: ...
 
 
 class LLMPort(Protocol):
-    def generate(self, prompt: str, context_chunks: list[Chunk]) -> str: ...
+    async def generate(self, prompt: str, context_chunks: list[Chunk]) -> str: ...
 
 
 class UserContextPort(Protocol):

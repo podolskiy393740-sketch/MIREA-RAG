@@ -21,5 +21,5 @@ async def handle_question(message: Message, answer_question: AnswerQuestionUseCa
     if not message.text:
         return
 
-    answer = answer_question.execute(Query(text=message.text))
+    answer = await answer_question.execute(Query(text=message.text))
     await message.answer(answer.text)
