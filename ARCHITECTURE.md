@@ -75,17 +75,17 @@ infrastructure/chunking/
 `ChunkerSelector` реализует `ChunkerPort` и внутри делегирует одному из
 двух — это и есть «не или/или, а гибрид» из CLAUDE.md.
 
-**Embeddings (порт с двумя реализациями — решение не принято, оставляем
-переключаемым через конфиг, ничего не хардкодим):**
+**Embeddings — решение принято: Qwen3-Embedding-0.6B, self-hosted через
+sentence-transformers** (см. `docs/embeddings-comparison.md` — сравнение
+вариантов; без внешнего API, без сетевой задержки на каждый чанк/запрос,
+соответствует требованию куратора по задержке).
 ```
 infrastructure/embeddings/
-  openrouter_embedder.py         # EmbedderPort через OpenRouter API
-  sentence_transformers_embedder.py  # EmbedderPort, self-hosted
+  qwen_local_embedder.py   # EmbedderPort, sentence-transformers, EMBEDDING_DIM=1024
 ```
-Выбор реализации — через переменную окружения/конфиг (`EMBEDDER_BACKEND`),
-не через ветвление в бизнес-логике. Когда куратор/команда выберут вариант
-(в т.ч. лёгкие модели вроде Qwen) — добавляется третья реализация порта,
-retrieval-код не трогается.
+Реализация — за портом `EmbedderPort` (см. `domain/ports.py`), поэтому
+если решение по модели пересмотрят — меняется одна реализация, retrieval-
+код не трогается.
 
 **Storage (Postgres + pgvector):**
 ```
