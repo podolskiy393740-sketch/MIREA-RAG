@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 from pathlib import Path
 
 from src.domain.entities import Document, DocumentType
+from src.infrastructure.ingestion.document_id import stable_document_id
 
 
 def load_documents_from_qa_csv(csv_path: str | Path) -> list[Document]:
@@ -40,7 +40,7 @@ def load_documents_from_qa_csv(csv_path: str | Path) -> list[Document]:
 
     return [
         Document(
-            id=_document_id(source_url),
+            id=stable_document_id(source_url),
             source_url=source_url,
             doc_type=DocumentType.UNSTRUCTURED_PDF,
             raw_text="\n\n".join(answers_by_source[source_url]),
@@ -52,7 +52,3 @@ def load_documents_from_qa_csv(csv_path: str | Path) -> list[Document]:
 def _read_rows(csv_path: str | Path) -> list[dict[str, str]]:
     with Path(csv_path).open(newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
-
-
-def _document_id(source_url: str) -> str:
-    return hashlib.sha1(source_url.encode("utf-8")).hexdigest()[:16]
