@@ -19,6 +19,7 @@ class Distribution:
 class EvalSummary:
     cases_total: int
     cases_scored: int
+    cases_errored: int
     success_rate_ge_4: float | None
     judge: Distribution
     rouge_1_mean: float | None
@@ -33,15 +34,17 @@ def summarize(results: Sequence[EvalResult]) -> EvalSummary:
         sum(1 for s in judge_scores if s >= 4) / len(judge_scores) * 100.0 if judge_scores else None
     )
     fallback_count = sum(1 for r in results if r.needs_human_fallback)
+    latencies = [r.latency_ms for r in results if r.latency_ms is not None]
 
     return EvalSummary(
         cases_total=len(results),
         cases_scored=len(judge_scores),
+        cases_errored=sum(1 for r in results if r.error is not None),
         success_rate_ge_4=success_rate_ge_4,
         judge=_distribution(judge_scores),
         rouge_1_mean=_mean(r.rouge_1 for r in results),
         rouge_l_mean=_mean(r.rouge_l for r in results),
-        latency_ms=_distribution([r.latency_ms for r in results]),
+        latency_ms=_distribution(latencies),
         human_fallback_rate=(fallback_count / len(results) * 100.0) if results else 0.0,
     )
 
@@ -50,6 +53,7 @@ def format_summary(summary: EvalSummary) -> str:
     lines = [
         f"cases_total={summary.cases_total}",
         f"cases_scored={summary.cases_scored}",
+        f"cases_errored={summary.cases_errored}",
         f"human_fallback_rate={summary.human_fallback_rate:.1f}%",
     ]
     if summary.success_rate_ge_4 is not None:

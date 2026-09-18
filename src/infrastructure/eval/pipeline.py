@@ -23,12 +23,13 @@ class EvalResult:
     question: str
     ideal_answer: str
     model_answer: str
-    rouge_1: float
-    rouge_l: float
+    rouge_1: float | None
+    rouge_l: float | None
     judge_score: int | None
     judge_reason: str | None
-    latency_ms: float
+    latency_ms: float | None
     needs_human_fallback: bool
+    error: str | None = None
 
 
 async def evaluate_dataset(
@@ -52,13 +53,38 @@ async def evaluate_dataset(
 
 
 async def _evaluate_case(case: EvalCase, answer_fn: AnswerFn, judge: LLMJudge) -> EvalResult:
+    """Ошибка на одном кейсе (сеть, исчерпанные ретраи LLM и т.п.) не
+    должна ронять весь прогон и терять уже посчитанные результаты
+    остальных кейсов — падение "проваливается" в EvalResult.error, а не
+    наружу через asyncio.gather (см. evaluate_dataset)."""
     started_at = time.monotonic()
-    answer = await answer_fn(case.question)
+    try:
+        answer = await answer_fn(case.question)
+    except Exception as exc:
+        return EvalResult(
+            question=case.question,
+            ideal_answer=case.ideal_answer,
+            model_answer="",
+            rouge_1=None,
+            rouge_l=None,
+            judge_score=None,
+            judge_reason=None,
+            latency_ms=None,
+            needs_human_fallback=True,
+            error=str(exc),
+        )
     latency_ms = (time.monotonic() - started_at) * 1000
 
-    judged = await judge.judge(
-        question=case.question, ideal_answer=case.ideal_answer, model_answer=answer.text
-    )
+    judge_score: int | None = None
+    judge_reason: str | None = None
+    try:
+        judged = await judge.judge(
+            question=case.question, ideal_answer=case.ideal_answer, model_answer=answer.text
+        )
+        judge_score = judged.score
+        judge_reason = judged.reason
+    except Exception:
+        pass  # judge недоступен - ROUGE и сам ответ всё равно посчитаны
 
     return EvalResult(
         question=case.question,
@@ -66,8 +92,8 @@ async def _evaluate_case(case: EvalCase, answer_fn: AnswerFn, judge: LLMJudge) -
         model_answer=answer.text,
         rouge_1=rouge_1_f1(case.ideal_answer, answer.text),
         rouge_l=rouge_l_f1(case.ideal_answer, answer.text),
-        judge_score=judged.score,
-        judge_reason=judged.reason,
+        judge_score=judge_score,
+        judge_reason=judge_reason,
         latency_ms=latency_ms,
         needs_human_fallback=answer.needs_human_fallback,
     )

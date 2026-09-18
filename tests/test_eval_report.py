@@ -2,7 +2,9 @@ from src.infrastructure.eval.pipeline import EvalResult
 from src.infrastructure.eval.report import summarize
 
 
-def _result(judge_score, rouge_1=0.5, rouge_l=0.5, latency_ms=100.0, needs_human_fallback=False) -> EvalResult:
+def _result(
+    judge_score, rouge_1=0.5, rouge_l=0.5, latency_ms=100.0, needs_human_fallback=False, error=None
+) -> EvalResult:
     return EvalResult(
         question="q",
         ideal_answer="a",
@@ -13,6 +15,7 @@ def _result(judge_score, rouge_1=0.5, rouge_l=0.5, latency_ms=100.0, needs_human
         judge_reason=None,
         latency_ms=latency_ms,
         needs_human_fallback=needs_human_fallback,
+        error=error,
     )
 
 
@@ -58,3 +61,19 @@ def test_empty_results_do_not_crash():
     assert summary.cases_total == 0
     assert summary.human_fallback_rate == 0.0
     assert summary.judge.count == 0
+
+
+def test_errored_case_with_none_latency_does_not_crash_distribution():
+    """Кейс, где answer_fn упал (см. pipeline._evaluate_case): rouge/judge/
+    latency = None, error задан. Раньше None в списке латентностей ронял
+    sorted() внутри _distribution."""
+    results = [
+        _result(None, rouge_1=None, rouge_l=None, latency_ms=None, needs_human_fallback=True, error="RuntimeError: ..."),
+        _result(5, latency_ms=200.0),
+    ]
+
+    summary = summarize(results)
+
+    assert summary.cases_errored == 1
+    assert summary.latency_ms.count == 1
+    assert summary.rouge_1_mean == 0.5
