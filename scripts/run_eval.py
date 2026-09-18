@@ -22,7 +22,7 @@ from src.infrastructure.eval.dataset import load_eval_cases_from_csv
 from src.infrastructure.eval.llm_judge import LLMJudge
 from src.infrastructure.eval.pipeline import evaluate_dataset
 from src.infrastructure.eval.report import format_summary, summarize
-from src.infrastructure.llm.openrouter_llm import OpenRouterLLMClient
+from src.infrastructure.llm.openai_llm import OpenAIClient
 from src.infrastructure.storage.postgres.fulltext_repository import PostgresFullTextRepository
 from src.infrastructure.storage.postgres.session import get_session
 from src.infrastructure.storage.postgres.vector_repository import PostgresVectorRepository
@@ -37,8 +37,8 @@ async def run(csv_path: str, limit: int | None, concurrency: int) -> None:
     print(f"Кейсов в наборе: {len(cases)}")
 
     embedder = QwenLocalEmbedder()
-    llm = OpenRouterLLMClient()
-    judge = LLMJudge(OpenRouterLLMClient())  # тот же дефолт модели, что и генерация
+    llm = OpenAIClient()
+    judge = LLMJudge(OpenAIClient())  # тот же дефолт модели, что и генерация
 
     async def answer_fn(question: str) -> Answer:
         # Отдельная сессия на каждый вызов (и внутри — на каждый порт):
@@ -69,7 +69,10 @@ if __name__ == "__main__":
     parser.add_argument("--csv", default=_DEFAULT_CSV, help="Путь к CSV (question,answer)")
     parser.add_argument("--limit", type=int, default=None, help="Ограничить число кейсов")
     parser.add_argument(
-        "--concurrency", type=int, default=1, help="Параллельных кейсов (осторожно с free-тиром OpenRouter)"
+        "--concurrency",
+        type=int,
+        default=1,
+        help="Параллельных кейсов (платный OpenAI выдержит больше, чем free-тир OpenRouter, но лимиты аккаунта неизвестны — по умолчанию осторожно)",
     )
     args = parser.parse_args()
 
