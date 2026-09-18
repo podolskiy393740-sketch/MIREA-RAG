@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
+from dataclasses import asdict
 
 from src.application.use_cases import AnswerQuestionUseCase
 from src.domain.entities import Answer, Query
@@ -30,7 +32,7 @@ from src.infrastructure.storage.postgres.vector_repository import PostgresVector
 _DEFAULT_CSV = "data/external/mirea_rag_slava_test.csv"
 
 
-async def run(csv_path: str, limit: int | None, concurrency: int) -> None:
+async def run(csv_path: str, limit: int | None, concurrency: int, output_path: str | None) -> None:
     cases = load_eval_cases_from_csv(csv_path)
     if limit is not None:
         cases = cases[:limit]
@@ -63,6 +65,14 @@ async def run(csv_path: str, limit: int | None, concurrency: int) -> None:
     print()
     print(format_summary(summarize(results)))
 
+    if output_path is not None:
+        # Полные результаты по каждому кейсу (не только сводка) — для
+        # детального разбора ошибок (например, какие именно 8 вопросов
+        # ушли в фолбек) без повторного дорогого прогона.
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump([asdict(r) for r in results], f, ensure_ascii=False, indent=2)
+        print(f"\nПолные результаты сохранены в {output_path}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -74,6 +84,7 @@ if __name__ == "__main__":
         default=1,
         help="Параллельных кейсов (платный OpenAI выдержит больше, чем free-тир OpenRouter, но лимиты аккаунта неизвестны — по умолчанию осторожно)",
     )
+    parser.add_argument("--output", default=None, help="Путь для сохранения полных результатов в JSON")
     args = parser.parse_args()
 
-    asyncio.run(run(args.csv, args.limit, args.concurrency))
+    asyncio.run(run(args.csv, args.limit, args.concurrency, args.output))
