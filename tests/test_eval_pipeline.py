@@ -87,6 +87,19 @@ async def test_one_case_failing_does_not_lose_other_results():
 
 
 @pytest.mark.asyncio
+async def test_on_result_callback_fires_once_per_case_with_final_total():
+    cases = [EvalCase(question=f"вопрос {i}", ideal_answer=f"ответ на: вопрос {i}") for i in range(3)]
+    judge = LLMJudge(FakeJudgeLLM())
+    seen: list[tuple[int, int]] = []
+
+    await evaluate_dataset(cases, _answer_fn, judge, on_result=lambda completed, total, result: seen.append((completed, total)))
+
+    assert len(seen) == 3
+    assert seen[-1] == (3, 3)
+    assert [c for c, _ in seen] == [1, 2, 3]  # concurrency=1 по умолчанию -> строго по порядку
+
+
+@pytest.mark.asyncio
 async def test_judge_failure_keeps_answer_and_rouge():
     cases = [EvalCase(question="q", ideal_answer="ответ на: q")]
     judge = LLMJudge(FailingJudgeLLM())

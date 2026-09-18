@@ -53,7 +53,12 @@ async def run(csv_path: str, limit: int | None, concurrency: int) -> None:
             )
             return await use_case.execute(Query(text=question))
 
-    results = await evaluate_dataset(cases, answer_fn, judge, concurrency=concurrency)
+    def on_result(completed: int, total: int, result) -> None:
+        status = "ERROR" if result.error else ("fallback" if result.needs_human_fallback else "ok")
+        judge_part = f"judge={result.judge_score}" if result.judge_score is not None else "judge=?"
+        print(f"[{completed}/{total}] {status} {judge_part} rouge_1={result.rouge_1} :: {result.question[:60]}")
+
+    results = await evaluate_dataset(cases, answer_fn, judge, concurrency=concurrency, on_result=on_result)
 
     print()
     print(format_summary(summarize(results)))

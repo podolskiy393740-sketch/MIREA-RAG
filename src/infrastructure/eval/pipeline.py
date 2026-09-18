@@ -32,8 +32,15 @@ class EvalResult:
     error: str | None = None
 
 
+OnResult = Callable[[int, int, EvalResult], None]
+
+
 async def evaluate_dataset(
-    cases: list[EvalCase], answer_fn: AnswerFn, judge: LLMJudge, concurrency: int = 1
+    cases: list[EvalCase],
+    answer_fn: AnswerFn,
+    judge: LLMJudge,
+    concurrency: int = 1,
+    on_result: OnResult | None = None,
 ) -> list[EvalResult]:
     """Прогоняет каждый кейс через реальный AnswerQuestionUseCase (answer_fn
     — замыкание из composition root, скрывающее управление БД-сессиями от
@@ -42,12 +49,27 @@ async def evaluate_dataset(
     concurrency по умолчанию 1: бесплатный тариф OpenRouter — общий
     перегруженный пул с лимитом запросов в минуту (см. project memory),
     параллельные eval-запросы быстро упираются в 429.
+
+    on_result(completed, total, result) вызывается по мере готовности
+    каждого кейса — порядок вызовов может не совпадать с порядком cases
+    при concurrency > 1, но итоговый список результатов порядок сохраняет
+    (asyncio.gather). Без колбэка долгий прогон (десятки кейсов,
+    последовательно) не даёт вообще никакой обратной связи до самого
+    конца — неотличимо от зависшего процесса снаружи.
     """
     semaphore = asyncio.Semaphore(max(1, concurrency))
+    completed = 0
+    lock = asyncio.Lock()
 
     async def _run(case: EvalCase) -> EvalResult:
+        nonlocal completed
         async with semaphore:
-            return await _evaluate_case(case, answer_fn, judge)
+            result = await _evaluate_case(case, answer_fn, judge)
+        if on_result is not None:
+            async with lock:
+                completed += 1
+                on_result(completed, len(cases), result)
+        return result
 
     return await asyncio.gather(*(_run(case) for case in cases))
 
