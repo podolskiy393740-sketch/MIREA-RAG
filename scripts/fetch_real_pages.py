@@ -28,12 +28,15 @@ TARGET_PAGES = {
     "stolovye_bufety": "https://www.mirea.ru/about/infrastructure/stolovye-bufety/",
     "sportivnaya_infrastruktura": "https://www.mirea.ru/about/infrastructure/sportivnaya-infrastruktura/",
     "start_uchebnogo_goda_pervokursniki": "https://www.mirea.ru/ads/o-nachale-uchebnogo-goda-dlya-pervokursnikov-rtu-mirea/",
+    # Старые /education/military-training/ и .../military-department/
+    # существуют в архиве только в шаблоне 2015-2020 годов (парсер их не
+    # разбирает избирательно, падает на fallback). Эта страница из /ads/
+    # 2025 года — рабочая замена с тем же смыслом (шаблон "news-item-text",
+    # см. html_parser.py).
+    "voenniy_uchebniy_tsentr": (
+        "https://www.mirea.ru/ads/postuplenie-v-voennyy-uchebnyy-tsentr-pri-rtu-mirea-otvety-na-voprosy-i-kontaktnaya-informatsiya/"
+    ),
 }
-
-# military-training/ существует только в архиве шаблона 2015-2020 годов
-# (нет класса app-content/page-title — html_to_markdown не может вычленить
-# контент от мега-меню). Оставлено на потом: либо доп. эвристика парсера
-# под старый шаблон, либо найти актуальный урл про военную кафедру.
 
 
 async def fetch_all(out_dir: Path) -> None:

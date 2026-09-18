@@ -3,13 +3,13 @@ from __future__ import annotations
 from bs4 import BeautifulSoup, Tag
 from markdownify import markdownify
 
-# Шаблон сайта mirea.ru (проверено на реальных страницах через Wayback
-# Machine, см. docs/data-collection.md): заголовок статьи и её текст лежат
-# в этих классах, а не во всём <body> — там ещё мега-меню с сотнями
-# пунктов навигации на каждую страницу, которое иначе тоже попадёт в текст
-# для чанкинга и забьёт индекс мусором вместо контента.
-_CONTENT_CLASS = "app-content"
-_TITLE_CLASS = "page-title"
+# mirea.ru использует не один шаблон, а несколько (менялись со временем) —
+# заголовок статьи и её текст лежат в этих контейнерах, а не во всём
+# <body>, где ещё мега-меню с сотнями пунктов навигации на каждую страницу,
+# которое иначе тоже попадёт в текст для чанкинга и забьёт индекс мусором.
+# Проверено на реальных страницах через Wayback Machine — см.
+# docs/data-collection.md. Каждый новый обнаруженный шаблон — новая функция
+# в _EXTRACTION_STRATEGIES, пробуются по очереди, первое совпадение побеждает.
 
 
 def html_to_markdown(html: str) -> str:
@@ -32,16 +32,38 @@ def html_to_markdown(html: str) -> str:
 
 
 def _extract_main_content(soup: BeautifulSoup) -> Tag:
-    content = soup.find(class_=_CONTENT_CLASS)
-    if content is None:
-        # Незнакомый шаблон страницы (например, старый архивный снапшот) —
-        # лучше отдать всё тело, чем упасть, но это нужно проверять глазами.
-        return soup.body or soup
+    for strategy in _EXTRACTION_STRATEGIES:
+        extracted = strategy(soup)
+        if extracted is not None:
+            return extracted
+    # Незнакомый шаблон страницы (например, старый архивный снапшот) —
+    # лучше отдать всё тело, чем упасть, но это нужно проверять глазами.
+    return soup.body or soup
 
-    title = soup.find(class_=_TITLE_CLASS)
+
+def _extract_app_content_template(soup: BeautifulSoup) -> Tag | None:
+    """Основной шаблон разделов сайта (/about/, /education/ и т.п.)."""
+    content = soup.find(class_="app-content")
+    if content is None:
+        return None
+    return _combine(soup.find(class_="page-title"), content)
+
+
+def _extract_news_item_template(soup: BeautifulSoup) -> Tag | None:
+    """Более старый шаблон объявлений (/ads/) без класса на заголовке —
+    например, страницы 2025 года про поступление в военный учебный центр."""
+    content = soup.find(class_="news-item-text")
+    if content is None:
+        return None
+    return _combine(soup.find("h1"), content)
+
+
+_EXTRACTION_STRATEGIES = (_extract_app_content_template, _extract_news_item_template)
+
+
+def _combine(title: Tag | None, content: Tag) -> Tag:
     if title is None:
         return content
-
     wrapper = BeautifulSoup("<div></div>", "html.parser").div
     wrapper.append(title.extract())
     wrapper.append(content.extract())

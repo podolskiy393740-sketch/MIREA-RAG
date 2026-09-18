@@ -92,3 +92,31 @@ def test_falls_back_to_whole_body_without_known_content_class():
     markdown = html_to_markdown(_MIREA_PAGE_HTML)
 
     assert "Положение о военной кафедре" in markdown
+
+
+# Более старый шаблон /ads/ (например, страницы 2025 года про поступление
+# в военный учебный центр) — заголовок без класса, текст в news-item-text.
+_NEWS_ITEM_TEMPLATE_HTML = """
+<html>
+  <body>
+    <nav class="top_menu__content">
+      <ul><li><a href="/abitur/">Абитуриентам</a></li></ul>
+    </nav>
+    <h1>Поступление в Военный учебный центр при РТУ МИРЭА</h1>
+    <div class="uk-margin-bottom">05.03.2025</div>
+    <div class="news-item-text uk-margin-bottom">
+      <p>Горячая линия по вопросам поступления: 7 499 600-80-80, доб. 32604.</p>
+    </div>
+    <footer><a href="/about/">Об Университете</a></footer>
+  </body>
+</html>
+"""
+
+
+def test_extracts_news_item_template_ignoring_mega_menu():
+    markdown = html_to_markdown(_NEWS_ITEM_TEMPLATE_HTML)
+
+    assert "# Поступление в Военный учебный центр при РТУ МИРЭА" in markdown
+    assert "Горячая линия" in markdown
+    assert "Абитуриентам" not in markdown
+    assert "Об Университете" not in markdown
