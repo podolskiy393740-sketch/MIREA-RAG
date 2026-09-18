@@ -36,6 +36,11 @@ TARGET_PAGES = {
     "voenniy_uchebniy_tsentr": (
         "https://www.mirea.ru/ads/postuplenie-v-voennyy-uchebnyy-tsentr-pri-rtu-mirea-otvety-na-voprosy-i-kontaktnaya-informatsiya/"
     ),
+    "medpunkty": "https://www.mirea.ru/about/infrastructure/medpunkty/",
+    "nauchno_tekhnicheskaya_biblioteka": "https://www.mirea.ru/about/infrastructure/nauchno-tekhnicheskaya-biblioteka/",
+    "social_security": "https://www.mirea.ru/about/social-security/",
+    "for_persons_with_disabilities": "https://www.mirea.ru/about/infrastructure/for-persons-with-disabilities/",
+    "kampusy": "https://www.mirea.ru/about/infrastructure/kampusy-rtu-mirea/",
 }
 
 
