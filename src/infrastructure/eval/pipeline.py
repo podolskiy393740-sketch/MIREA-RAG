@@ -23,12 +23,17 @@ class EvalResult:
     question: str
     ideal_answer: str
     model_answer: str
-    rouge_1: float | None
-    rouge_l: float | None
     judge_score: int | None
     judge_reason: str | None
     latency_ms: float | None
     needs_human_fallback: bool
+    # Ragas-style метрики (основные, рекомендованы куратором вместо ROUGE)
+    faithfulness: float | None = None
+    answer_relevance: float | None = None
+    context_recall: float | None = None
+    # ROUGE оставлен как дополнительный референс, не основная метрика
+    rouge_1: float | None = None
+    rouge_l: float | None = None
     error: str | None = None
 
 
@@ -87,8 +92,6 @@ async def _evaluate_case(case: EvalCase, answer_fn: AnswerFn, judge: LLMJudge) -
             question=case.question,
             ideal_answer=case.ideal_answer,
             model_answer="",
-            rouge_1=None,
-            rouge_l=None,
             judge_score=None,
             judge_reason=None,
             latency_ms=None,
@@ -97,25 +100,44 @@ async def _evaluate_case(case: EvalCase, answer_fn: AnswerFn, judge: LLMJudge) -
         )
     latency_ms = (time.monotonic() - started_at) * 1000
 
+    context_text = "\n\n".join(c.text for c in answer.sources)
+
     judge_score: int | None = None
     judge_reason: str | None = None
+    faithfulness: float | None = None
+    answer_relevance: float | None = None
+    context_recall: float | None = None
     try:
-        judged = await judge.judge(
-            question=case.question, ideal_answer=case.ideal_answer, model_answer=answer.text
+        judged, ragas = await asyncio.gather(
+            judge.judge(
+                question=case.question, ideal_answer=case.ideal_answer, model_answer=answer.text
+            ),
+            judge.judge_ragas(
+                question=case.question,
+                ideal_answer=case.ideal_answer,
+                model_answer=answer.text,
+                context=context_text,
+            ),
         )
         judge_score = judged.score
         judge_reason = judged.reason
+        faithfulness = ragas.faithfulness
+        answer_relevance = ragas.answer_relevance
+        context_recall = ragas.context_recall
     except Exception:
-        pass  # judge недоступен - ROUGE и сам ответ всё равно посчитаны
+        pass  # judge недоступен — latency и fallback-rate всё равно посчитаны
 
     return EvalResult(
         question=case.question,
         ideal_answer=case.ideal_answer,
         model_answer=answer.text,
-        rouge_1=rouge_1_f1(case.ideal_answer, answer.text),
-        rouge_l=rouge_l_f1(case.ideal_answer, answer.text),
         judge_score=judge_score,
         judge_reason=judge_reason,
         latency_ms=latency_ms,
         needs_human_fallback=answer.needs_human_fallback,
+        faithfulness=faithfulness,
+        answer_relevance=answer_relevance,
+        context_recall=context_recall,
+        rouge_1=rouge_1_f1(case.ideal_answer, answer.text),
+        rouge_l=rouge_l_f1(case.ideal_answer, answer.text),
     )

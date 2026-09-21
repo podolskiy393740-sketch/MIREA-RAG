@@ -11,8 +11,13 @@ from src.domain.ports import (
     LLMPort,
     VectorStorePort,
 )
-from src.infrastructure.llm.prompt_templates import INSUFFICIENT_DATA_MARKER, build_prompt
-from src.infrastructure.retrieval.rrf import rrf_fuse
+from src.infrastructure.llm.prompt_templates import (
+    INSUFFICIENT_DATA_MARKER,
+    build_expansion_prompt,
+    build_prompt,
+    parse_expanded_queries,
+)
+from src.infrastructure.retrieval.rrf import rrf_fuse_multi
 
 _SEARCH_TOP_K = 10
 # Грубый предфильтр числом чанков после RRF (до тонкой обрезки по
@@ -90,19 +95,42 @@ class AnswerQuestionUseCase:
 
         return Answer(text=answer_text, sources=context_chunks)
 
+    async def _expand_queries(self, text: str) -> list[str]:
+        """Генерирует 2 синонимичных варианта запроса через LLM для Query Expansion.
+        При любой ошибке возвращает [text] — retrieval деградирует до одного запроса."""
+        if self._llm is None:
+            return [text]
+        try:
+            raw = await self._llm.generate(build_expansion_prompt(text))
+            return parse_expanded_queries(raw, original=text)
+        except Exception:
+            return [text]
+
     async def _retrieve(self, query: Query) -> list[Chunk]:
+        query_variants = await self._expand_queries(query.text)
+
         if self._vector_store is not None and self._embedder is not None:
-            query_embedding = (await self._embedder.embed([query.text]))[0]
-            fts_results, vector_results = await asyncio.gather(
-                self._fulltext_store.search(query.text, top_k=_SEARCH_TOP_K),
-                self._vector_store.search(query_embedding, top_k=_SEARCH_TOP_K),
+            # Эмбеддинг запускаем сразу (run_in_executor → отдельный поток, без
+            # AsyncSession) — он идёт параллельно с FTS-запросами.
+            # FTS-запросы — строго последовательно: несколько concurrent-запросов
+            # на одну AsyncSession ломают её (SQLAlchemy не поддерживает).
+            embed_future = asyncio.ensure_future(self._embedder.embed([query.text]))
+            fts_lists: list[list[Chunk]] = []
+            for q_text in query_variants:
+                fts_lists.append(await self._fulltext_store.search(q_text, top_k=_SEARCH_TOP_K))
+            query_embedding = (await embed_future)[0]
+            vector_list: list[Chunk] = await self._vector_store.search(
+                query_embedding, top_k=_SEARCH_TOP_K
             )
         else:
-            fts_results = await self._fulltext_store.search(query.text, top_k=_SEARCH_TOP_K)
-            vector_results = []
+            fts_lists = []
+            for q_text in query_variants:
+                fts_lists.append(await self._fulltext_store.search(q_text, top_k=_SEARCH_TOP_K))
+            vector_list = []
 
-        fused = rrf_fuse(fts_results, vector_results)
-        return [retrieved.chunk for retrieved in fused[:_MAX_CONTEXT_CHUNKS]]
+        all_ranked = fts_lists + ([vector_list] if vector_list else [])
+        fused = rrf_fuse_multi(all_ranked)
+        return [r.chunk for r in fused[:_MAX_CONTEXT_CHUNKS]]
 
 
 class IngestDocumentUseCase:

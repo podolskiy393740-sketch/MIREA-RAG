@@ -29,7 +29,8 @@ from src.infrastructure.storage.postgres.fulltext_repository import PostgresFull
 from src.infrastructure.storage.postgres.session import get_session
 from src.infrastructure.storage.postgres.vector_repository import PostgresVectorRepository
 
-_DEFAULT_CSV = "data/external/mirea_rag_slava_test.csv"
+_DEFAULT_CSV = "data/eval/curated_15.csv"
+_SLAVA_CSV = "data/external/mirea_rag_slava_test.csv"
 
 
 async def run(csv_path: str, limit: int | None, concurrency: int, output_path: str | None) -> None:
@@ -58,7 +59,10 @@ async def run(csv_path: str, limit: int | None, concurrency: int, output_path: s
     def on_result(completed: int, total: int, result) -> None:
         status = "ERROR" if result.error else ("fallback" if result.needs_human_fallback else "ok")
         judge_part = f"judge={result.judge_score}" if result.judge_score is not None else "judge=?"
-        print(f"[{completed}/{total}] {status} {judge_part} rouge_1={result.rouge_1} :: {result.question[:60]}")
+        f_part = f"F={result.faithfulness:.2f}" if result.faithfulness is not None else "F=?"
+        ar_part = f"AR={result.answer_relevance:.2f}" if result.answer_relevance is not None else "AR=?"
+        cr_part = f"CR={result.context_recall:.2f}" if result.context_recall is not None else "CR=?"
+        print(f"[{completed}/{total}] {status} {judge_part} {f_part} {ar_part} {cr_part} :: {result.question[:55]}")
 
     results = await evaluate_dataset(cases, answer_fn, judge, concurrency=concurrency, on_result=on_result)
 
