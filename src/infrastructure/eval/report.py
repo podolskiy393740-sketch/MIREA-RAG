@@ -22,13 +22,10 @@ class EvalSummary:
     cases_errored: int
     success_rate_ge_4: float | None
     judge: Distribution
-    # Ragas-style (основные метрики)
+    # Ragas-style метрики
     faithfulness_mean: float | None
     answer_relevance_mean: float | None
     context_recall_mean: float | None
-    # ROUGE (дополнительный референс)
-    rouge_1_mean: float | None
-    rouge_l_mean: float | None
     latency_ms: Distribution
     human_fallback_rate: float
 
@@ -50,8 +47,6 @@ def summarize(results: Sequence[EvalResult]) -> EvalSummary:
         faithfulness_mean=_mean(r.faithfulness for r in results),
         answer_relevance_mean=_mean(r.answer_relevance for r in results),
         context_recall_mean=_mean(r.context_recall for r in results),
-        rouge_1_mean=_mean(r.rouge_1 for r in results),
-        rouge_l_mean=_mean(r.rouge_l for r in results),
         latency_ms=_distribution(latencies),
         human_fallback_rate=(fallback_count / len(results) * 100.0) if results else 0.0,
     )
@@ -72,8 +67,6 @@ def format_summary(summary: EvalSummary) -> str:
     lines.append(f"faithfulness={_fmt(summary.faithfulness_mean)}")
     lines.append(f"answer_relevance={_fmt(summary.answer_relevance_mean)}")
     lines.append(f"context_recall={_fmt(summary.context_recall_mean)}")
-    lines.append(f"rouge_1_mean={_fmt(summary.rouge_1_mean)}  # supplementary")
-    lines.append(f"rouge_l_mean={_fmt(summary.rouge_l_mean)}  # supplementary")
     if summary.latency_ms.count:
         latency = summary.latency_ms
         lines.append(

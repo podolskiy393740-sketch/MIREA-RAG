@@ -7,7 +7,6 @@ from typing import Awaitable, Callable
 
 from src.domain.entities import Answer
 from src.infrastructure.eval.llm_judge import LLMJudge
-from src.infrastructure.eval.metrics import rouge_1_f1, rouge_l_f1
 
 AnswerFn = Callable[[str], Awaitable[Answer]]
 
@@ -27,13 +26,10 @@ class EvalResult:
     judge_reason: str | None
     latency_ms: float | None
     needs_human_fallback: bool
-    # Ragas-style метрики (основные, рекомендованы куратором вместо ROUGE)
+    # Ragas-style метрики
     faithfulness: float | None = None
     answer_relevance: float | None = None
     context_recall: float | None = None
-    # ROUGE оставлен как дополнительный референс, не основная метрика
-    rouge_1: float | None = None
-    rouge_l: float | None = None
     error: str | None = None
 
 
@@ -49,7 +45,7 @@ async def evaluate_dataset(
 ) -> list[EvalResult]:
     """Прогоняет каждый кейс через реальный AnswerQuestionUseCase (answer_fn
     — замыкание из composition root, скрывающее управление БД-сессиями от
-    eval-пайплайна) и оценивает ROUGE + LLM-judge.
+    eval-пайплайна) и оценивает Ragas-метрики + LLM-judge.
 
     concurrency по умолчанию 1: бесплатный тариф OpenRouter — общий
     перегруженный пул с лимитом запросов в минуту (см. project memory),
@@ -138,6 +134,4 @@ async def _evaluate_case(case: EvalCase, answer_fn: AnswerFn, judge: LLMJudge) -
         faithfulness=faithfulness,
         answer_relevance=answer_relevance,
         context_recall=context_recall,
-        rouge_1=rouge_1_f1(case.ideal_answer, answer.text),
-        rouge_l=rouge_l_f1(case.ideal_answer, answer.text),
     )
