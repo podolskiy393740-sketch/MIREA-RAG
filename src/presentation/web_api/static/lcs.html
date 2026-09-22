@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Личный кабинет — РТУ МИРЭА</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="logo">
+    <span class="logo-badge">РТУ</span>
+    <span class="logo-name">МИРЭА</span>
+  </a>
+  <nav class="site-nav">
+    <a href="/">← Главная</a>
+    <a href="#">Расписание</a>
+    <a href="#">Успеваемость</a>
+    <a href="#">Оплата</a>
+    <a href="#">Документы</a>
+  </nav>
+</header>
+
+<div class="lcs-layout">
+
+  <!-- PROFILE PANEL -->
+  <aside class="profile-panel">
+    <div class="avatar" id="profile-avatar">ИП</div>
+    <div class="profile-name" id="profile-name">Иван Петров</div>
+    <div class="profile-sub" id="profile-sub">Студент МИРЭА</div>
+
+    <div class="profile-info" id="profile-info">
+      <div class="info-row">
+        <span class="info-label">Направление</span>
+        <span class="info-value" id="pfield-direction">ИВТ</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Факультет</span>
+        <span class="info-value" id="pfield-faculty">ИРТС</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Курс</span>
+        <span class="info-value" id="pfield-course">1</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Форма обучения</span>
+        <span class="info-value" id="pfield-funding">Бюджет</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Статус</span>
+        <span class="info-value" id="pfield-region">Иногородний</span>
+      </div>
+    </div>
+
+    <div class="profile-switcher">
+      <div class="profile-switcher-label">Демо-профили</div>
+      <button class="profile-btn active" data-profile="ivan">Иван Петров, 1 курс</button>
+      <button class="profile-btn" data-profile="maria">Мария Сидорова, 3 курс</button>
+      <button class="profile-btn" data-profile="alexey">Алексей Иванов, 2 курс</button>
+    </div>
+
+    <div class="privacy-row">
+      <span>Данные видны боту</span>
+      <button class="toggle on" id="privacy-toggle" title="Включить/выключить передачу профиля в бот"></button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="lcs-content">
+    <div class="lcs-welcome">
+      <h2 id="welcome-heading">Добро пожаловать, Иван!</h2>
+      <p id="welcome-text">Вы зашли в личный кабинет студента МИРЭА. Помощник знает ваш профиль и может давать персонализированные ответы — например, об общежитии для иногородних или стипендиях на первом курсе.</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <h3>Расписание</h3>
+        <p>Занятия на эту неделю, корпус и аудитории.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Успеваемость</h3>
+        <p>Оценки, зачёты и академическая задолженность.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💳</div>
+        <h3>Оплата обучения</h3>
+        <p>Статус оплаты, рассрочка и реквизиты.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <h3>Справки</h3>
+        <p>Заказ справок об обучении, о зачислении и других документов.</p>
+      </div>
+    </div>
+
+    <div class="card" style="padding:28px;">
+      <h3 style="margin-bottom:12px;font-size:16px;color:var(--navy)">О персонализации помощника</h3>
+      <p style="font-size:14px;color:var(--text-muted);line-height:1.7;">
+        Когда бот получает ваш профиль, он может уточнять ответы с учётом вашего курса и факультета.
+        Например, первокурснику-иногородному он расскажет про приоритет при заселении в общежитие,
+        а студенту на платном — про рассрочку и скидки.<br><br>
+        <strong>Важно:</strong> данные используются только для персонализации ответов в рамках этого сеанса.
+        Это демонстрационная версия — реальная интеграция с ЛКС МИРЭА в разработке.
+      </p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 РТУ МИРЭА — Личный кабинет студента</p>
+  <p style="margin-top:6px;"><em>Демонстрационная версия с тестовыми профилями.</em></p>
+</footer>
+
+<script src="chat.js"></script>
+<script>
+  const PROFILES = {
+    ivan: {
+      name: 'Иван Петров', initials: 'ИП',
+      sub: 'Студент МИРЭА · 1 курс',
+      direction: 'ИВТ', faculty: 'ИРТС', course: 1,
+      funding: 'Бюджет', region: 'Иногородний',
+      welcome: 'Иван',
+      welcomeText: 'Вы зашли в личный кабинет студента МИРЭА. Помощник знает ваш профиль и может давать персонализированные ответы — например, об общежитии для иногородних или стипендиях на первом курсе.',
+    },
+    maria: {
+      name: 'Мария Сидорова', initials: 'МС',
+      sub: 'Студентка МИРЭА · 3 курс',
+      direction: 'Информационная безопасность', faculty: 'ИТ', course: 3,
+      funding: 'Платное', region: 'Москва',
+      welcome: 'Мария',
+      welcomeText: 'Добро пожаловать! Помощник знает, что вы на 3 курсе платного отделения. Спросите про рассрочку, скидки, академический отпуск или перевод на бюджет.',
+    },
+    alexey: {
+      name: 'Алексей Иванов', initials: 'АИ',
+      sub: 'Студент МИРЭА · 2 курс',
+      direction: 'Программная инженерия', faculty: 'ИТ', course: 2,
+      funding: 'Бюджет', region: 'Иногородний',
+      welcome: 'Алексей',
+      welcomeText: 'Добро пожаловать! 2 курс, бюджет, иногородний. Помощник может ответить на вопросы о продлении общежития, повышенной стипендии и академических правилах.',
+    },
+  };
+
+  let activeProfile = PROFILES.ivan;
+  let privacyEnabled = true;
+  let chat;
+
+  function applyProfile(key) {
+    const p = PROFILES[key];
+    activeProfile = p;
+
+    document.getElementById('profile-avatar').textContent = p.initials;
+    document.getElementById('profile-name').textContent = p.name;
+    document.getElementById('profile-sub').textContent = p.sub;
+    document.getElementById('pfield-direction').textContent = p.direction;
+    document.getElementById('pfield-faculty').textContent = p.faculty;
+    document.getElementById('pfield-course').textContent = p.course;
+    document.getElementById('pfield-funding').textContent = p.funding;
+    document.getElementById('pfield-region').textContent = p.region;
+    document.getElementById('welcome-heading').textContent = 'Добро пожаловать, ' + p.welcome + '!';
+    document.getElementById('welcome-text').textContent = p.welcomeText;
+
+    document.querySelectorAll('.profile-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.profile === key);
+    });
+
+    rebuildChat();
+  }
+
+  function getCurrentUserContext() {
+    if (!privacyEnabled) return null;
+    return { course: activeProfile.course, faculty: activeProfile.faculty };
+  }
+
+  function rebuildChat() {
+    // Remove old FAB and panel if they exist
+    document.querySelector('.chat-fab')?.remove();
+    document.querySelector('.chat-panel')?.remove();
+
+    chat = new MireaChat({
+      userContext: getCurrentUserContext(),
+      showPrivacyBanner: true,
+    });
+    chat.mount();
+    window._chat = chat;
+  }
+
+  // Profile switcher
+  document.querySelectorAll('.profile-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyProfile(btn.dataset.profile));
+  });
+
+  // Privacy toggle
+  const toggleBtn = document.getElementById('privacy-toggle');
+  toggleBtn.addEventListener('click', () => {
+    privacyEnabled = !privacyEnabled;
+    toggleBtn.classList.toggle('on', privacyEnabled);
+    rebuildChat();
+  });
+
+  // Init
+  applyProfile('ivan');
+</script>
+</body>
+</html>

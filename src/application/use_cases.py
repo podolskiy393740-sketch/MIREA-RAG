@@ -81,7 +81,7 @@ class AnswerQuestionUseCase:
         if not context_chunks:
             return Answer(text=_NO_ANSWER_FOUND_TEXT, needs_human_fallback=True)
 
-        prompt = build_prompt(query.text, context_chunks)
+        prompt = build_prompt(query.text, context_chunks, query.user_context)
         try:
             answer_text = await self._llm.generate(prompt)
         except Exception:

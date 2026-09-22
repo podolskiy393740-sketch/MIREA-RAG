@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.domain.entities import Chunk
+from src.domain.entities import Chunk, UserContext
 
 # LLM должна вернуть ровно эту фразу, если в источниках нет ответа —
 # use case проверяет её и переводит на человека вместо того, чтобы
@@ -28,17 +28,30 @@ _DEFAULT_MAX_CONTEXT_TOKENS = 2000
 
 
 def build_prompt(
-    question: str, context_chunks: list[Chunk], max_context_tokens: int = _DEFAULT_MAX_CONTEXT_TOKENS
+    question: str,
+    context_chunks: list[Chunk],
+    user_context: UserContext | None = None,
+    max_context_tokens: int = _DEFAULT_MAX_CONTEXT_TOKENS,
 ) -> str:
     """Собирает промпт: системная инструкция + источники (обрезанные по
     токен-бюджету, приоритет — по порядку в context_chunks, т.е. по
     RRF-рангу) + вопрос студента."""
     context_text = _fit_context_to_budget(context_chunks, max_context_tokens)
 
+    profile_hint = ""
+    if user_context:
+        parts = []
+        if user_context.course:
+            parts.append(f"{user_context.course} курс")
+        if user_context.faculty:
+            parts.append(f"факультет {user_context.faculty}")
+        if parts:
+            profile_hint = f" [Профиль студента: {', '.join(parts)}]"
+
     return (
         f"{_SYSTEM_INSTRUCTIONS}\n\n"
         f"Источники:\n{context_text}\n\n"
-        f"Вопрос студента: {question}\n"
+        f"Вопрос студента: {question}{profile_hint}\n"
         f"Ответ:"
     )
 

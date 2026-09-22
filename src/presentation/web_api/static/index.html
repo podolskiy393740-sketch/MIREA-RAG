@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>РТУ МИРЭА — Российский технологический университет</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="logo">
+    <span class="logo-badge">РТУ</span>
+    <span class="logo-name">МИРЭА</span>
+  </a>
+  <nav class="site-nav">
+    <a href="#">Поступление</a>
+    <a href="#">Обучение</a>
+    <a href="#">Студентам</a>
+    <a href="#">Наука</a>
+    <a href="#">Университет</a>
+    <a href="lcs.html" class="header-cta">Личный кабинет →</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <h1>РТУ МИРЭА — Российский технологический университет</h1>
+  <p>Один из ведущих технических вузов России. Подготовка инженеров,
+     IT-специалистов и учёных с 1947 года.</p>
+  <a href="#services" class="btn-primary">Узнать о поступлении</a>
+</div>
+
+<div class="container">
+  <div class="banner">
+    <div>
+      <h2>Есть вопросы об университете?</h2>
+      <p>Наш RAG-помощник ответит на вопросы о поступлении, учёбе,
+         документах и правилах вуза — круглосуточно, без очереди.</p>
+    </div>
+    <button class="btn-primary" onclick="window._chat && window._chat.open()">
+      💬 Спросить помощника
+    </button>
+  </div>
+
+  <section class="section" id="services">
+    <div class="section-title">Популярные разделы</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">🎓</div>
+        <h3>Поступление 2026</h3>
+        <p>Направления подготовки, минимальные баллы ЕГЭ, сроки подачи документов и целевое обучение.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏠</div>
+        <h3>Общежитие</h3>
+        <p>Заявление на место, условия проживания, порядок заселения и стоимость.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💰</div>
+        <h3>Стипендии и льготы</h3>
+        <p>Академическая, социальная, повышенная и именная стипендии для студентов.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌍</div>
+        <h3>Иностранным студентам</h3>
+        <p>Нострификация документов, миграционный учёт и поступление на общих основаниях.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏢</div>
+        <h3>Технопарк «Альтаир»</h3>
+        <p>Бесплатные программы для школьников 8–11 классов по IT и инженерным специальностям.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Приёмная комиссия</h3>
+        <p>Адрес, телефоны, email и часы работы приёмной комиссии МИРЭА.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Новости университета</div>
+    <div class="cards">
+      <div class="card">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">20 сентября 2026</div>
+        <h3>Открытые двери для абитуриентов</h3>
+        <p>Приглашаем будущих первокурсников познакомиться с кампусом и направлениями подготовки.</p>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">18 сентября 2026</div>
+        <h3>Детский технопарк «Альтаир»: набор завершён</h3>
+        <p>Все места на программы осеннего семестра заняты. Следующий набор — в феврале 2027.</p>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">15 сентября 2026</div>
+        <h3>Стипендии за I семестр назначены</h3>
+        <p>Академические и социальные стипендии зачислены на счета студентов. Проверьте личный кабинет.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <p>© 2026 РТУ МИРЭА — Российский технологический университет · Москва, пр. Вернадского, 78</p>
+  <p style="margin-top:6px;"><em>Демонстрационная версия RAG-помощника. Данные берутся из официальных источников МИРЭА.</em></p>
+</footer>
+
+<script src="chat.js"></script>
+<script>
+  const chat = new MireaChat();
+  chat.mount();
+  window._chat = chat;
+</script>
+</body>
+</html>
