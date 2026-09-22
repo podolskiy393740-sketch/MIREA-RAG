@@ -1,0 +1,10 @@
+/var/log/mirea/web.log {
+    daily
+    rotate 2
+    maxage 2
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

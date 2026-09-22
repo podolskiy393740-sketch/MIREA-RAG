@@ -1,0 +1,21 @@
+[Unit]
+Description=МИРЭА RAG — веб-интерфейс (FastAPI)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=YOUR_VPS_USER
+WorkingDirectory=YOUR_PROJECT_DIR
+EnvironmentFile=YOUR_PROJECT_DIR/.env
+ExecStart=YOUR_PROJECT_DIR/.venv/bin/python -m scripts.run_web --host 0.0.0.0 --port 8000
+
+Restart=on-failure
+RestartSec=5
+
+# Логи в файл — ротация через logrotate
+StandardOutput=append:/var/log/mirea/web.log
+StandardError=append:/var/log/mirea/web.log
+
+[Install]
+WantedBy=multi-user.target
