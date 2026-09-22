@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Protocol
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,9 @@ class EmbeddingSettings(BaseSettings):
 
 class _Encoder(Protocol):
     def encode(self, texts: list[str], batch_size: int = 32): ...  # sentence-transformers возвращает numpy array
+
+
+_ENCODE_LOCK = threading.Lock()
 
 
 class QwenLocalEmbedder:
@@ -58,5 +62,6 @@ class QwenLocalEmbedder:
         return await asyncio.to_thread(self._encode_sync, texts)
 
     def _encode_sync(self, texts: list[str]) -> list[Vector]:
-        vectors = self._get_encoder().encode(texts, batch_size=self._ENCODE_BATCH_SIZE)
+        with _ENCODE_LOCK:
+            vectors = self._get_encoder().encode(texts, batch_size=self._ENCODE_BATCH_SIZE)
         return [[float(x) for x in vector] for vector in vectors]
