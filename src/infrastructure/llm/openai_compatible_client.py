@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from typing import AsyncGenerator
 
 import httpx
 
@@ -55,3 +57,32 @@ class OpenAICompatibleClient:
             if attempt < self._retries - 1:
                 await asyncio.sleep(self._backoff_seconds * (attempt + 1))
         raise RuntimeError(f"{self._api_url} не ответил после {self._retries} попыток") from last_error
+
+    async def stream(self, prompt: str) -> AsyncGenerator[str, None]:
+        """Стриминг токенов через OpenAI-совместимый SSE-формат.
+        Не ретраит — reconnect при стриминге сложнее и нецелесообразен."""
+        async with self._client.stream(
+            "POST",
+            self._api_url,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json={
+                "model": self._model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": True,
+            },
+            timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0),
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+                payload = line[6:]
+                if payload.strip() == "[DONE]":
+                    return
+                try:
+                    chunk = json.loads(payload)
+                    token = chunk["choices"][0]["delta"].get("content") or ""
+                    if token:
+                        yield token
+                except Exception:
+                    continue

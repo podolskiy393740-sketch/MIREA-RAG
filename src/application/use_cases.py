@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
 from src.domain.entities import Answer, Chunk, Document, Query
 from src.domain.ports import (
@@ -24,7 +25,13 @@ _SEARCH_TOP_K = 10
 # токен-бюджету в build_prompt — см. prompt_templates.py).
 _MAX_CONTEXT_CHUNKS = 5
 
-_NO_ANSWER_FOUND_TEXT = (
+# Кэш результатов Query Expansion: один и тот же вопрос студента не должен
+# дважды гонять LLM для генерации синонимов. TTL 1 час, лимит 512 записей.
+_EXPAND_CACHE: dict[str, tuple[list[str], float]] = {}
+_EXPAND_CACHE_TTL = 3600
+_EXPAND_CACHE_MAX = 512
+
+NO_ANSWER_FOUND_TEXT = (
     "К сожалению, не нашёл ответа в документах вуза — этот вопрос передан техподдержке/куратору."
 )
 
@@ -79,7 +86,7 @@ class AnswerQuestionUseCase:
             )
 
         if not context_chunks:
-            return Answer(text=_NO_ANSWER_FOUND_TEXT, needs_human_fallback=True)
+            return Answer(text=NO_ANSWER_FOUND_TEXT, needs_human_fallback=True)
 
         prompt = build_prompt(query.text, context_chunks, query.user_context)
         try:
@@ -88,33 +95,52 @@ class AnswerQuestionUseCase:
             # Осознанно широкий except: сеть/лимиты/невалидный ответ
             # внешнего API — любой сбой LLM должен уйти в человеческий
             # фолбек, а не уронить ответ бота студенту.
-            return Answer(text=_NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)
+            return Answer(text=NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)
 
         if INSUFFICIENT_DATA_MARKER in answer_text:
-            return Answer(text=_NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)
+            return Answer(text=NO_ANSWER_FOUND_TEXT, sources=context_chunks, needs_human_fallback=True)
 
         return Answer(text=answer_text, sources=context_chunks)
 
     async def _expand_queries(self, text: str) -> list[str]:
         """Генерирует 2 синонимичных варианта запроса через LLM для Query Expansion.
+        Результат кэшируется на 1 час — повторные одинаковые вопросы не гоняют LLM.
         При любой ошибке возвращает [text] — retrieval деградирует до одного запроса."""
         if self._llm is None:
             return [text]
+
+        now = time.monotonic()
+        cached = _EXPAND_CACHE.get(text)
+        if cached and now - cached[1] < _EXPAND_CACHE_TTL:
+            return cached[0]
+
         try:
             raw = await self._llm.generate(build_expansion_prompt(text))
-            return parse_expanded_queries(raw, original=text)
+            result = parse_expanded_queries(raw, original=text)
         except Exception:
             return [text]
 
+        # Ограничиваем размер кэша: при превышении удаляем самые старые записи.
+        if len(_EXPAND_CACHE) >= _EXPAND_CACHE_MAX:
+            oldest = sorted(_EXPAND_CACHE.items(), key=lambda kv: kv[1][1])[:64]
+            for k, _ in oldest:
+                _EXPAND_CACHE.pop(k, None)
+        _EXPAND_CACHE[text] = (result, now)
+        return result
+
     async def _retrieve(self, query: Query) -> list[Chunk]:
+        # Embed и expand запускаются одновременно: embed работает на оригинальном
+        # тексте запроса, который известен заранее — не нужно ждать expansion.
+        # Это убирает Qwen-инференс (~0.5-2с) с критического пути.
+        embed_future = None
+        if self._vector_store is not None and self._embedder is not None:
+            embed_future = asyncio.ensure_future(self._embedder.embed([query.text]))
+
         query_variants = await self._expand_queries(query.text)
 
-        if self._vector_store is not None and self._embedder is not None:
-            # Эмбеддинг запускаем сразу (run_in_executor → отдельный поток, без
-            # AsyncSession) — он идёт параллельно с FTS-запросами.
-            # FTS-запросы — строго последовательно: несколько concurrent-запросов
-            # на одну AsyncSession ломают её (SQLAlchemy не поддерживает).
-            embed_future = asyncio.ensure_future(self._embedder.embed([query.text]))
+        if embed_future is not None:
+            # FTS-запросы строго последовательно: одна AsyncSession не поддерживает
+            # concurrent-запросы в SQLAlchemy.
             fts_lists: list[list[Chunk]] = []
             for q_text in query_variants:
                 fts_lists.append(await self._fulltext_store.search(q_text, top_k=_SEARCH_TOP_K))

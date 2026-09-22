@@ -177,25 +177,77 @@ class MireaChat {
     this._setLoading(true);
     const typingId = this._appendTyping();
 
-    try {
-      const body = { question: text };
-      if (this.userContext) body.user_context = this.userContext;
+    const body = { question: text };
+    if (this.userContext) body.user_context = this.userContext;
 
-      const resp = await fetch('/api/ask', {
+    // Используем SSE-стриминг: пользователь видит токены по мере генерации
+    try {
+      const resp = await fetch('/api/ask/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
 
-      this._removeTyping(typingId);
-      this._appendMessage('bot', data.answer, data.needs_human_fallback);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let botMsgEl = null;
+      let bubble = null;
+      let fullText = '';
+
+      const renderBubble = () => {
+        if (!bubble) return;
+        bubble.innerHTML = typeof marked !== 'undefined'
+          ? marked.parse(fullText, { breaks: true })
+          : fullText.replace(/\n/g, '<br>');
+        this._scrollToBottom();
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          let event;
+          try { event = JSON.parse(part.slice(6)); } catch { continue; }
+
+          if (event.token !== undefined) {
+            // Первый токен: убираем typing, создаём сообщение
+            if (!botMsgEl) {
+              this._removeTyping(typingId);
+              botMsgEl = this._appendMessage('bot', '');
+              bubble = botMsgEl.querySelector('.msg-bubble');
+            }
+            fullText += event.token;
+            renderBubble();
+          }
+
+          if (event.replace !== undefined) {
+            fullText = event.replace;
+            renderBubble();
+          }
+
+          if (event.done) {
+            if (event.needs_human_fallback && botMsgEl) botMsgEl.classList.add('fallback');
+            this._setLoading(false);
+          }
+        }
+      }
+
+      // На случай если SSE закрылся без события done
+      if (!botMsgEl) {
+        this._removeTyping(typingId);
+        this._appendMessage('bot', 'Нет ответа от сервера. Попробуйте позже.', true);
+        this._setLoading(false);
+      }
     } catch (err) {
       this._removeTyping(typingId);
       this._appendMessage('bot', 'Произошла ошибка при обращении к серверу. Попробуйте позже.', true);
-    } finally {
       this._setLoading(false);
     }
   }
