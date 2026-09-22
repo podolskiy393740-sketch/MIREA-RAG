@@ -35,6 +35,9 @@ DEPLOY_FILES = [
 RESEED_DELTA_CSVS = [
     "data/external/qa_delta_v1.csv",
     "data/external/qa_delta_v2.csv",
+    "data/external/qa_delta_v3.csv",
+    "data/external/qa_delta_v4.csv",
+    "data/external/qa_delta_v5.csv",
 ]
 
 
@@ -43,6 +46,7 @@ def connect() -> paramiko.SSHClient:
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     c.connect(HOST, username=USER, password=PASS, timeout=20,
                look_for_keys=False, allow_agent=False)
+    c.get_transport().set_keepalive(30)
     return c
 
 
@@ -86,16 +90,17 @@ def deploy(client: paramiko.SSHClient, csv_path: str) -> None:
     print(f"Bot PID: {pid or 'not found!'}")
 
 
-def reseed_delta(client: paramiko.SSHClient) -> None:
+def reseed_delta(client: paramiko.SSHClient, csvs: list[str] | None = None) -> None:
+    targets = csvs if csvs is not None else RESEED_DELTA_CSVS
     sftp = client.open_sftp()
     run(client, f"mkdir -p {REMOTE_ROOT}/data/external")
-    for local_csv in RESEED_DELTA_CSVS:
+    for local_csv in targets:
         remote_csv = f"{REMOTE_ROOT}/{local_csv}"
         sftp.put(local_csv.replace("/", "\\"), remote_csv)
         print(f"  up: {local_csv}")
     sftp.close()
 
-    for i, local_csv in enumerate(RESEED_DELTA_CSVS):
+    for i, local_csv in enumerate(targets):
         remote_csv = f"{REMOTE_ROOT}/{local_csv}"
         log_file = f"/tmp/reseed_delta_{i}.log"
         print(f"Running seeder for {local_csv}...")
@@ -114,10 +119,21 @@ def reseed_delta(client: paramiko.SSHClient) -> None:
         print("Waiting", end="", flush=True)
         for _ in range(60):
             time.sleep(30)
-            alive = run(client, "pgrep -f 'seed_from_qa_csv' | head -1", timeout=10)
+            # Реконнект на каждый poll — VPS обрывает idle SSH через ~2 мин
+            try:
+                chk = connect()
+                log = run(chk, f"tail -3 {log_file} 2>/dev/null", timeout=10)
+                alive = run(chk, "pgrep -f 'seed_from_qa_csv' | head -1", timeout=10)
+                chk.close()
+            except Exception as exc:
+                print(f"[reconnect err: {exc}]", end="", flush=True)
+                continue
+            safe_log = log[:200].encode("ascii", errors="replace").decode()
+            if "проиндексировано" in log.lower() or "error" in log.lower() or "traceback" in log.lower():
+                print(f"\nDone. Log: {safe_log}")
+                break
             if not alive:
-                log = run(client, f"tail -5 {log_file}", timeout=10)
-                print(f"\nSeeder log:\n{log}")
+                print(f"\nProcess ended. Log: {safe_log}")
                 break
             print(".", end="", flush=True)
         print()
@@ -215,6 +231,8 @@ if __name__ == "__main__":
     parser.add_argument("--deploy-only", action="store_true")
     parser.add_argument("--reseed", action="store_true", help="Upload and run delta seeder before eval")
     parser.add_argument("--reseed-only", action="store_true", help="Only run delta seeder, no eval")
+    parser.add_argument("--reseed-csv", nargs="+", default=None,
+                        help="Specific delta CSV(s) to reseed (default: all in RESEED_DELTA_CSVS)")
     parser.add_argument("--csv", default="data/eval/curated_15.csv")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--output", default="data/eval/last_results.json")
@@ -228,7 +246,7 @@ if __name__ == "__main__":
 
         if args.reseed or args.reseed_only:
             print("\n=== RESEED DELTA ===")
-            reseed_delta(client)
+            reseed_delta(client, csvs=args.reseed_csv)
 
         if not args.deploy_only and not args.reseed_only:
             print("\n=== EVAL ===")
