@@ -418,6 +418,32 @@ a:hover { text-decoration: underline; }
   border-bottom-left-radius: 4px;
 }
 
+/* Markdown inside bot bubbles */
+.msg.bot .msg-bubble p { margin: 0 0 6px; }
+.msg.bot .msg-bubble p:last-child { margin-bottom: 0; }
+.msg.bot .msg-bubble h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 10px 0 4px;
+}
+.msg.bot .msg-bubble h3:first-child { margin-top: 0; }
+.msg.bot .msg-bubble ul,
+.msg.bot .msg-bubble ol {
+  padding-left: 18px;
+  margin: 4px 0 6px;
+}
+.msg.bot .msg-bubble li { margin: 2px 0; }
+.msg.bot .msg-bubble strong { font-weight: 700; }
+.msg.bot .msg-bubble em { font-style: italic; }
+.msg.bot .msg-bubble code {
+  background: #e4e8ef;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
 .msg-time {
   font-size: 11px;
   color: var(--text-muted);

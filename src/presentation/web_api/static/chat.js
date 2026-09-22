@@ -206,7 +206,11 @@ class MireaChat {
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
-    bubble.textContent = text;
+    if (role === 'bot' && typeof marked !== 'undefined') {
+      bubble.innerHTML = marked.parse(text, { breaks: true });
+    } else {
+      bubble.textContent = text;
+    }
 
     const time = document.createElement('div');
     time.className = 'msg-time';
